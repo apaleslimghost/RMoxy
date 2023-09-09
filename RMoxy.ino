@@ -111,16 +111,12 @@ bool runPressLast = 0;
 bool runStatus = 0;
 bool clkNow = 0;
 bool clkLast = 0;
-bool externalClk = 0;
 bool resetRead = 0;
 bool resetLast = 0;
 
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
 unsigned long stepTimerMillis = 0L;
-unsigned long stepInterval =
-    150; // step interval in ms, one step is a 1/16 note
-         // http://www.dvfugit.com/beats-per-minute-millisecond-delay-calculator.php
 unsigned long debounceTimerMillis = 0L;
 unsigned long debounceTime = 10;
 
@@ -174,13 +170,6 @@ void loop() {
                            ADC_MAX_VALUE - MUTING_MARGIN, 255, 0),
                        0, 255);
 
-  if (tempoRead < TEMPO_THR) {
-    externalClk = 1;
-  } else {
-    externalClk = 0;
-    stepInterval = map(tempoRead, ADC_MAX_VALUE, TEMPO_THR, 50, 300);
-  }
-
   resetRead = digitalReadFast(CHAN_CV_PIN);
 
   if (resetRead && !resetLast) { // if reset is going high, go to step 0
@@ -210,40 +199,37 @@ void loop() {
         currentMillis; // reset interval timing for internal clock
   }
 
-  if (runStatus) {
-    if ((externalClk && clkNow && !clkLast) ||
-        (!externalClk &&
-         ((unsigned long)(currentMillis - stepTimerMillis) >=
-          stepInterval))) { // ext CLK rising or internal clock timer reach
+  if (clkNow && !clkLast) { // ext CLK rising or internal clock timer reach
+    for (int i = 0; i < 8; i++) {
+      float rnd = rand();
+      int lastPatternBit = bitRead(pattern[lastPat][currentStep], 7 - i);
+      int nextPatternBit = bitRead(pattern[nextPat][currentStep], 7 - i);
+      bool play = (lastPatternBit && rnd > patProb) ||
+                  (nextPatternBit && rnd < patProb);
 
-      for (int i = 0; i < 8; i++) {
-        float rnd = rand();
-        int lastPatternBit = bitRead(pattern[lastPat][currentStep], 7 - i);
-        int nextPatternBit = bitRead(pattern[nextPat][currentStep], 7 - i);
-        bool play = (lastPatternBit && rnd > patProb) ||
-                    (nextPatternBit && rnd < patProb);
-
-        if (play && bitRead(muteRead, i)) {
-          playRtm(i);
-        }
+      if (play && bitRead(muteRead, i)) {
+        playRtm(i);
       }
-
-      digitalWrite(LED0, bitRead(currentStep, 0));
-      digitalWrite(LED1, bitRead(currentStep, 1));
-      digitalWrite(LED2, bitRead(currentStep, 2));
-      digitalWrite(LED3, bitRead(currentStep, 3));
-      currentStep++;
-      stepTimerMillis =
-          currentMillis; // reset interval timing for internal clock
     }
-    clkLast = clkNow;
-    resetRead = digitalReadFast(CHAN_CV_PIN);
-    if ((resetRead && !resetLast) || (currentStep == 16) ||
-        pattern[patNum][currentStep] == 255)
-      currentStep = 0; // start over if we are at step 0 if we passed 15 or next
-                       // step pattern value is 255 (reset)
-    resetLast = resetRead;
+
+    digitalWrite(LED0, bitRead(currentStep, 0));
+    digitalWrite(LED1, bitRead(currentStep, 1));
+    digitalWrite(LED2, bitRead(currentStep, 2));
+    digitalWrite(LED3, bitRead(currentStep, 3));
+    currentStep++;
+    stepTimerMillis = currentMillis; // reset interval timing for internal clock
   }
+
+  clkLast = clkNow;
+  resetRead = digitalReadFast(CHAN_CV_PIN);
+
+  if ((resetRead && !resetLast) || (currentStep == 16) ||
+      pattern[patNum][currentStep] == 255) {
+    currentStep = 0; // start over if we are at step 0 if we passed 15 or next
+                     // step pattern value is 255 (reset)
+  }
+
+  resetLast = resetRead;
   runPressLast = runPress;
 }
 
