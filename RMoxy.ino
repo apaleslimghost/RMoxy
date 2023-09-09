@@ -98,7 +98,10 @@ AudioPlayMemory *rtm[8]{&playMem1, &playMem2, &playMem3, &playMem4,
                         &playMem5, &playMem6, &playMem7, &playMem8};
 
 int currentStep = 0; // pattern step
-int patNum = 0;      // selected rhythm pattern
+long patNum = 0;     // selected rhythm pattern
+long patProb = 0;
+int lastPat = 0;
+int nextPat = 0;
 int tempoRead = 0;
 int muteRead = 0;
 bool runPress = 0;
@@ -152,24 +155,34 @@ void setup() {
 void loop() {
   currentMillis = millis();
   patNum = map(analogRead(CHAN_POT_PIN), 0, ADC_MAX_VALUE, 0, 15);
+  lastPat = floor(patNum);
+  nextPat = ceil(patNum);
+  patProb = 1 - (patNum - lastPat);
   tempoRead = analogRead(TIME_POT_PIN);
   runPressRead = digitalReadFast(RESET_BUTTON);
-  if (runPressRead != runPressDebounce)
+
+  if (runPressRead != runPressDebounce) {
     debounceTimerMillis = currentMillis;
+  }
+
   if ((currentMillis - debounceTimerMillis) > debounceTime) {
     runPress = runPressRead;
   }
+
   runPressDebounce = runPressRead;
   muteRead = constrain(map(analogRead(TIME_CV_PIN), MUTING_MARGIN,
                            ADC_MAX_VALUE - MUTING_MARGIN, 255, 0),
                        0, 255);
+
   if (tempoRead < TEMPO_THR) {
     externalClk = 1;
   } else {
     externalClk = 0;
     stepInterval = map(tempoRead, ADC_MAX_VALUE, TEMPO_THR, 50, 300);
   }
+
   resetRead = digitalReadFast(CHAN_CV_PIN);
+
   if (resetRead && !resetLast) { // if reset is going high, go to step 0
     currentStep = 0;
     digitalWrite(LED0, bitRead(currentStep, 0));
@@ -177,8 +190,10 @@ void loop() {
     digitalWrite(LED2, bitRead(currentStep, 2));
     digitalWrite(LED3, bitRead(currentStep, 3));
   }
+
   resetLast = resetRead;
   clkNow = digitalReadFast(RESET_CV);
+
   if (runPress && !runPressLast) { // start/stop
     if (runStatus) {
       runStatus = 0;
@@ -194,16 +209,25 @@ void loop() {
     statusPreviousMillis =
         currentMillis; // reset interval timing for internal clock
   }
+
   if (runStatus) {
     if ((externalClk && clkNow && !clkLast) ||
         (!externalClk &&
          ((unsigned long)(currentMillis - stepTimerMillis) >=
           stepInterval))) { // ext CLK rising or internal clock timer reach
+
       for (int i = 0; i < 8; i++) {
-        if (bitRead(pattern[patNum][currentStep], 7 - i) &&
-            bitRead(muteRead, i))
+        float rnd = rand();
+        int lastPatternBit = bitRead(pattern[lastPat][currentStep], 7 - i);
+        int nextPatternBit = bitRead(pattern[nextPat][currentStep], 7 - i);
+        bool play = (lastPatternBit && rnd > patProb) ||
+                    (nextPatternBit && rnd < patProb);
+
+        if (play && bitRead(muteRead, i)) {
           playRtm(i);
+        }
       }
+
       digitalWrite(LED0, bitRead(currentStep, 0));
       digitalWrite(LED1, bitRead(currentStep, 1));
       digitalWrite(LED2, bitRead(currentStep, 2));
