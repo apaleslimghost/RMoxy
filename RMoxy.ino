@@ -150,7 +150,7 @@ void setup() {
 
 void loop() {
   currentMillis = millis();
-  patNum = map(analogRead(CHAN_POT_PIN), 0, ADC_MAX_VALUE, 0, 15);
+  patNum = map(analogRead(CHAN_POT_PIN), 0, ADC_MAX_VALUE, 0, 0);
   lastPat = floor(patNum);
   nextPat = ceil(patNum);
   patProb = 1 - (patNum - lastPat);
