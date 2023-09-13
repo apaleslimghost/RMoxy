@@ -52,14 +52,14 @@
 #define LED3 3
 #define RESET_LED 11    // Reset LED indicator
 #define CHAN_POT_PIN A9 // pin for Channel pot -- RMoxy Pattern
-#define CHAN_CV_PIN 20  // pin for Channel CV -- RMoxy Reset CLK (20/A6)
-#define TIME_POT_PIN                                                           \
+#define RESET_CV 20     // pin for Channel CV -- RMoxy Reset CLK (20/A6)
+#define MUTE_POT                                                               \
   A7 // pin for Time pot -- RMoxy Tempo (full CCW for external CLK)
-#define TIME_CV_PIN                                                            \
+#define MUTE_CV                                                                \
   A8 // pin for Time CV -- RMoxy binary muting, 0V on input or unconnected =
      // nothing muted
 #define RESET_BUTTON 8 // Reset button -- RMoxy RUN/SET
-#define RESET_CV 9     // Reset pulse input -- RMoxy CLK
+#define CLOCK_CV 9     // Reset pulse input -- RMoxy CLK
 
 #define ADC_BITS 13
 #define ADC_MAX_VALUE (1 << ADC_BITS)
@@ -103,12 +103,13 @@ long patProb = 0;
 int lastPat = 0;
 int nextPat = 0;
 int tempoRead = 0;
-int muteRead = 0;
-bool runPress = 0;
-bool runPressRead = 0;
-bool runPressDebounce = 0;
-bool runPressLast = 0;
-bool runStatus = 0;
+int muteCVRead = 0;
+int mutePotRead = 0;
+int mute = 0;
+bool buttonPress = 0;
+bool buttonPressRead = 0;
+bool buttonPressDebounce = 0;
+bool buttonPressLast = 0;
 bool clkNow = 0;
 bool clkLast = 0;
 bool resetRead = 0;
@@ -139,8 +140,8 @@ void setup() {
   analogReadRes(ADC_BITS);
 
   pinMode(RESET_BUTTON, INPUT);
+  pinMode(CLOCK_CV, INPUT);
   pinMode(RESET_CV, INPUT);
-  pinMode(CHAN_CV_PIN, INPUT);
   pinMode(RESET_LED, OUTPUT);
   pinMode(LED0, OUTPUT);
   pinMode(LED1, OUTPUT);
@@ -154,23 +155,27 @@ void loop() {
   lastPat = floor(patNum);
   nextPat = ceil(patNum);
   patProb = 1 - (patNum - lastPat);
-  tempoRead = analogRead(TIME_POT_PIN);
-  runPressRead = digitalReadFast(RESET_BUTTON);
+  tempoRead = analogRead(MUTE_POT);
+  buttonPressRead = digitalReadFast(RESET_BUTTON);
 
-  if (runPressRead != runPressDebounce) {
+  if (buttonPressRead != buttonPressDebounce) {
     debounceTimerMillis = currentMillis;
   }
 
   if ((currentMillis - debounceTimerMillis) > debounceTime) {
-    runPress = runPressRead;
+    buttonPress = buttonPressRead;
   }
 
-  runPressDebounce = runPressRead;
-  muteRead = constrain(map(analogRead(TIME_CV_PIN), MUTING_MARGIN,
-                           ADC_MAX_VALUE - MUTING_MARGIN, 255, 0),
-                       0, 255);
+  buttonPressDebounce = buttonPressRead;
 
-  resetRead = digitalReadFast(CHAN_CV_PIN);
+  mutePotRead = map(analogRead(MUTE_POT), 0, ADC_MAX_VALUE, 255, 0);
+
+  muteCVRead = map(analogRead(MUTE_CV), MUTING_MARGIN,
+                   ADC_MAX_VALUE - MUTING_MARGIN, 255, 0);
+
+  mute = constrain(mutePotRead + muteCVRead, 0, 255);
+
+  resetRead = digitalReadFast(RESET_CV);
 
   if (resetRead && !resetLast) { // if reset is going high, go to step 0
     currentStep = 0;
@@ -181,22 +186,10 @@ void loop() {
   }
 
   resetLast = resetRead;
-  clkNow = digitalReadFast(RESET_CV);
+  clkNow = digitalReadFast(CLOCK_CV);
 
-  if (runPress && !runPressLast) { // start/stop
-    if (runStatus) {
-      runStatus = 0;
-      currentStep = 0;
-      digitalWrite(LED0, 0);
-      digitalWrite(LED1, 0);
-      digitalWrite(LED2, 0);
-      digitalWrite(LED3, 0);
-    } else {
-      runStatus = 1;
-    }
-    digitalWrite(RESET_LED, runStatus); // LED by button lit when in RUN mode
-    statusPreviousMillis =
-        currentMillis; // reset interval timing for internal clock
+  if (buttonPress && !buttonPressLast) {
+    // TODO
   }
 
   if (clkNow && !clkLast) { // ext CLK rising or internal clock timer reach
@@ -207,7 +200,7 @@ void loop() {
       bool play = (lastPatternBit && rnd > patProb) ||
                   (nextPatternBit && rnd < patProb);
 
-      if (play && bitRead(muteRead, i)) {
+      if (play && bitRead(mute, i)) {
         playRtm(i);
       }
     }
@@ -221,7 +214,7 @@ void loop() {
   }
 
   clkLast = clkNow;
-  resetRead = digitalReadFast(CHAN_CV_PIN);
+  resetRead = digitalReadFast(RESET_CV);
 
   if ((resetRead && !resetLast) || (currentStep == 16) ||
       pattern[patNum][currentStep] == 255) {
@@ -230,7 +223,7 @@ void loop() {
   }
 
   resetLast = resetRead;
-  runPressLast = runPress;
+  buttonPressLast = buttonPress;
 }
 
 // play rhythm samples
