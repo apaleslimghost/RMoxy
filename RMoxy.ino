@@ -46,13 +46,13 @@
  MOSI 7
  SS   10
  */
-#define LED0 6
-#define LED1 5
-#define LED2 4
-#define LED3 3
-#define RESET_LED 11    // Reset LED indicator
-#define CHAN_POT_PIN A9 // pin for Channel pot -- RMoxy Pattern
-#define RESET_CV 20     // pin for Channel CV -- RMoxy Reset CLK (20/A6)
+#define LED0 3
+#define LED1 4
+#define LED2 5
+#define LED3 6
+#define RESET_LED 11   // Reset LED indicator
+#define PATTERN_POT A9 // pin for Channel pot -- RMoxy Pattern
+#define RESET_CV 20    // pin for Channel CV -- RMoxy Reset CLK (20/A6)
 #define MUTE_POT                                                               \
   A7 // pin for Time pot -- RMoxy Tempo (full CCW for external CLK)
 #define MUTE_CV                                                                \
@@ -64,7 +64,6 @@
 #define ADC_BITS 13
 #define ADC_MAX_VALUE (1 << ADC_BITS)
 
-#define TEMPO_THR 200
 #define MUTING_MARGIN 100
 
 // GUItool: begin automatically generated code
@@ -151,11 +150,10 @@ void setup() {
 
 void loop() {
   currentMillis = millis();
-  patNum = map(analogRead(CHAN_POT_PIN), 0, ADC_MAX_VALUE, 0, 0);
+  patNum = map(analogRead(PATTERN_POT), 0, ADC_MAX_VALUE, 0, 0);
   lastPat = floor(patNum);
   nextPat = ceil(patNum);
   patProb = 1 - (patNum - lastPat);
-  tempoRead = analogRead(MUTE_POT);
   buttonPressRead = digitalReadFast(RESET_BUTTON);
 
   if (buttonPressRead != buttonPressDebounce) {
@@ -179,10 +177,6 @@ void loop() {
 
   if (resetRead && !resetLast) { // if reset is going high, go to step 0
     currentStep = 0;
-    digitalWrite(LED0, bitRead(currentStep, 0));
-    digitalWrite(LED1, bitRead(currentStep, 1));
-    digitalWrite(LED2, bitRead(currentStep, 2));
-    digitalWrite(LED3, bitRead(currentStep, 3));
   }
 
   resetLast = resetRead;
@@ -205,10 +199,6 @@ void loop() {
       }
     }
 
-    digitalWrite(LED0, bitRead(currentStep, 0));
-    digitalWrite(LED1, bitRead(currentStep, 1));
-    digitalWrite(LED2, bitRead(currentStep, 2));
-    digitalWrite(LED3, bitRead(currentStep, 3));
     currentStep++;
     stepTimerMillis = currentMillis; // reset interval timing for internal clock
   }
@@ -228,29 +218,42 @@ void loop() {
 
 // play rhythm samples
 void playRtm(int i) {
+  digitalWrite(LED0, 0);
+  digitalWrite(LED1, 0);
+  digitalWrite(LED2, 0);
+  digitalWrite(LED3, 0);
+
   switch (i) {
   case 0:
+    digitalWrite(LED0, 1);
     rtm[i]->play(AudioSampleAsmpts_1_kick); // GU
     break;
   case 1:
+    digitalWrite(LED0, 1);
     rtm[i]->play(AudioSampleAsmpts_2_stick); // BG2
     break;
   case 2:
+    digitalWrite(LED1, 1);
     rtm[i]->play(AudioSampleAsmpts_3_snare); // BD
     break;
   case 3:
+    digitalWrite(LED1, 1);
     rtm[i]->play(AudioSampleAsmpts_4_clap); // CL
     break;
   case 4:
+    digitalWrite(LED2, 1);
     rtm[i]->play(AudioSampleAsmpts_5_midtom); // CW
     break;
   case 5:
+    digitalWrite(LED2, 1);
     rtm[i]->play(AudioSampleAsmpts_6_hitom); // MA
     break;
   case 6:
+    digitalWrite(LED3, 1);
     rtm[i]->play(AudioSampleAsmpts_7_closedhat); // CY
     break;
   case 7:
+    digitalWrite(LED3, 1);
     rtm[i]->play(AudioSampleAsmpts_8_openhat); // QU
     break;
   }
