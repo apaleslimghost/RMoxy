@@ -150,7 +150,7 @@ void setup() {
 
 void loop() {
   currentMillis = millis();
-  patNum = map(analogRead(PATTERN_POT), 0, ADC_MAX_VALUE, 0, 0);
+  patNum = map(analogRead(PATTERN_POT), 0, ADC_MAX_VALUE, 0, 3);
   lastPat = floor(patNum);
   nextPat = ceil(patNum);
   patProb = 1 - (patNum - lastPat);
@@ -166,12 +166,12 @@ void loop() {
 
   buttonPressDebounce = buttonPressRead;
 
-  mutePotRead = map(analogRead(MUTE_POT), 0, ADC_MAX_VALUE, 255, 0);
+  // mutePotRead =
 
-  muteCVRead = map(analogRead(MUTE_CV), MUTING_MARGIN,
-                   ADC_MAX_VALUE - MUTING_MARGIN, 255, 0);
+  // muteCVRead = map(analogRead(MUTE_CV), MUTING_MARGIN,
+  //                  ADC_MAX_VALUE - MUTING_MARGIN, 255, 0);
 
-  mute = constrain(mutePotRead + muteCVRead, 0, 255);
+  mute = map(analogRead(MUTE_POT), 0, ADC_MAX_VALUE, 255, 0);
 
   resetRead = digitalReadFast(RESET_CV);
 
@@ -206,7 +206,7 @@ void loop() {
   clkLast = clkNow;
   resetRead = digitalReadFast(RESET_CV);
 
-  if ((resetRead && !resetLast) || (currentStep == 16) ||
+  if ((resetRead && !resetLast) || (currentStep == 32) ||
       pattern[patNum][currentStep] == 255) {
     currentStep = 0; // start over if we are at step 0 if we passed 15 or next
                      // step pattern value is 255 (reset)
